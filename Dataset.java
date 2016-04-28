@@ -1,6 +1,6 @@
 
+import com.sun.xml.internal.ws.api.streaming.XMLStreamReaderFactory;
 import org.apache.commons.cli.*;
-import org.apache.commons.math3.util.DoubleArray;
 
 import java.io.FileReader;
 import java.io.BufferedReader;
@@ -8,7 +8,7 @@ import java.util.Arrays;
 import java.util.Scanner;
 
 /**
- * Created by Smaddady on 4/23/2016.
+ * Created by Ben Thompson on 4/23/2016.
  */
 public class Dataset {
 
@@ -27,6 +27,10 @@ public class Dataset {
     private double alpha;
     private double b;
     private double lambda;
+
+    private int MAX_ITERS = 0;
+    private int MAX_BAD_COUNT = 0;
+    private double STEP_SIZE = 0;
 
     //constructor
     public Dataset(Options options, String[] args) {
@@ -56,6 +60,18 @@ public class Dataset {
         return D;
     }
 
+    public double getAlpha() {return alpha;}
+
+    public double getB() {return b;}
+
+    public double getLamdba() {return lambda;}
+
+    public int getMAX_ITERS() {return MAX_ITERS;}
+
+    public int getMAX_BAD_COUNT() {return MAX_BAD_COUNT;}
+
+    public double getSTEP_SIZE() {return STEP_SIZE;}
+
 
     private void setConfigFromFile(String fileName){
         String line;
@@ -70,7 +86,7 @@ public class Dataset {
 
         }catch(Exception e){
 
-            e.getStackTrace();
+            e.printStackTrace();
 
         }
     }
@@ -82,12 +98,7 @@ public class Dataset {
         if(scanner.hasNext()) {
             token = scanner.next();
             switch (token) {
-                case "alpha": if(alpha == 0) alpha = Double.parseDouble(scanner.next());
-                    return;
-                case "b": if(b == 0) b = Double.parseDouble(scanner.next());
-                    return;
-                case "lambda": if(lambda == 0) lambda = Double.parseDouble(scanner.next());
-                    return;
+
                 case "N_TRAIN": N_TRAIN = Integer.parseInt(scanner.next());
                     return;
                 case "N_DEV": N_DEV = Integer.parseInt(scanner.next());
@@ -96,11 +107,23 @@ public class Dataset {
                     return;
                 case "D": D = Integer.parseInt(scanner.next());
                     return;
+                case "ALPHA": if(alpha == 0) alpha = Double.parseDouble(scanner.next());
+                    return;
+                case "B": if(b == 0) b = Double.parseDouble(scanner.next());
+                    return;
+                case "LAMBDA": if(lambda == 0) lambda = Double.parseDouble(scanner.next());
+                    return;
+                case "MAX_ITERS": MAX_ITERS = Integer.parseInt(scanner.next());
+                    return;
+                case "MAX_BAD_COUNT": MAX_BAD_COUNT = Integer.parseInt(scanner.next());
+                    return;
+                case "STEP_SIZE": STEP_SIZE = Double.parseDouble(scanner.next());
+                    return;
+                default: System.err.println("'dataset.config' has incorrect settings. Results may be incorrect.");
+
             }
         }
     }
-
-
 
     private void getDataFromArgs(Options options, String[] args){
 
