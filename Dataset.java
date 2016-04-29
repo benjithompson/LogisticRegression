@@ -44,6 +44,10 @@ public class Dataset {
         return sys_cfg_fn;
     }
 
+    public String getTrain_fn() {return train_fn;}
+
+    public String getDev_fn() {return dev_fn;}
+
     public int getN_TRAIN() {
         return N_TRAIN;
     }

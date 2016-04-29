@@ -17,6 +17,7 @@ public class Prog2 {
         //TODO: open files to useable form. add data to logisticRegression instance
 
         LogisticRegression logisticRegression = new LogisticRegression(data);
+        logisticRegression.run();
 
 
         //TODO: make logReg functions ie, regularization, linesearch, MultinomialRegression, early stopping...
