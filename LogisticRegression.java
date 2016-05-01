@@ -1,7 +1,6 @@
 import org.apache.commons.math3.analysis.function.Sigmoid;
 import org.apache.commons.math3.linear.Array2DRowRealMatrix;
 import org.apache.commons.math3.linear.RealMatrix;
-import sun.awt.image.PixelConverter;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -11,73 +10,78 @@ import java.io.IOException;
  * Created by Smaddady on 4/23/2016.
  */
 public class LogisticRegression {
+
     Dataset data;
-    RealMatrix xHatTrain;
-    RealMatrix xHatDev;
-    RealMatrix yTrain;
-    RealMatrix yDev;
-    RealMatrix betaHat;
-    RealMatrix trainPrediction;
-    RealMatrix devPrediction;
+    private RealMatrix xHatTrain; // d+1 x ntr
+    private RealMatrix xHatDev; // d+1 x ndev
+    private RealMatrix yTrain; //ntr x 1
+    private RealMatrix yDev; // ndev x 1
+    private RealMatrix betaHat; // 1 x D+1
+    private RealMatrix BHat; // C x D+1
+    private RealMatrix predTrain; // ntr x 1
+    private RealMatrix predDev; // ndev x 1
 
     public LogisticRegression(Dataset data) {
         this.data = data;
     }
 
-
     public void run(){
-
 
         if(data.getC() == 2){
 
-            initBinaryMatrixData();
-
-            //run binary logistic regression
-            binaryLogisticRegression(data.getSTEP_SIZE());
+            initMatrixData(data.getC());
+            binaryLogisticRegression(data.getSTEP_SIZE(), data.getLamdba());
 
         }else if(data.getC() > 2){
 
-            //run multinomial logistic regression
-            //TODO: finish multinomial logistic regression
-
+            initMatrixData(data.getC());
+            multinomialLogisticRegression();
         }
     }
 
-    private void initBinaryMatrixData(){
+    //initialize RealMatrix set, if c > 2 use BHat for multinomial classification
+    private void initMatrixData(int c){
+
+        //set initial beta/B matrix to zero
+        if(c > 2){
+            BHat = new Array2DRowRealMatrix(data.getD()+1, c);
+        }else{
+            betaHat = new Array2DRowRealMatrix(data.getD()+1, 1);
+        }
 
         xHatTrain = getXHatFromFile(data.getTrain_fn(), data.getN_TRAIN(), data.getD());
         xHatDev = getXHatFromFile(data.getDev_fn(), data.getN_DEV(), data.getD());
         yTrain = getYMatrixFromFile(data.getTrain_fn(), data.getN_TRAIN());
         yDev = getYMatrixFromFile(data.getDev_fn(), data.getN_DEV());
-        betaHat = new Array2DRowRealMatrix(data.getD()+1, 1);
-        trainPrediction = new Array2DRowRealMatrix(1, data.getN_TRAIN());
-        devPrediction = new Array2DRowRealMatrix(1, data.getN_DEV());
+
+        predTrain = new Array2DRowRealMatrix(1, data.getN_TRAIN());
+        predDev = new Array2DRowRealMatrix(1, data.getN_DEV());
 
     }
 
-    private void binaryLogisticRegression(double STEP_SIZE){
+    private void binaryLogisticRegression(double STEP_SIZE, double lambda){
 
         boolean converged = false;
-        double oldLL, newLL;
+        double oldAcc, newAcc, maxAcc = 0;
         int iter = 0;
         int badIters = 0;
         RealMatrix grad;
 
-        newLL = getNegativeLogLikelihood(betaHat, xHatTrain, yTrain, data.getN_TRAIN(), data.getD(), data.getLamdba());
+        //newLL = getNegativeLogLikelihood(betaHat, xHatTrain, yTrain, data.getN_TRAIN(), data.getD(), data.getLamdba());
+        newAcc = getAcc(xHatDev, yDev, predDev, data.getN_DEV());
 
         while(!converged && iter < data.getMAX_ITERS()){
             iter++;
-            System.out.println("LL: " + newLL);
-            oldLL = newLL;
 
-            grad = getGrad();
+            oldAcc = newAcc;
+
+            grad = getGrad(data.getD(), lambda);
 
             betaHat = betaHat.subtract(grad.scalarMultiply(STEP_SIZE));
 
-            newLL = getNegativeLogLikelihood(betaHat, xHatTrain, yTrain, data.getN_TRAIN(), data.getD(), data.getLamdba());
+            newAcc = getAcc(xHatDev, yDev, predDev, data.getN_DEV());
 
-
-            if(newLL >= oldLL){ // <= for minimization >= for maximization
+            if(newAcc <= maxAcc){ // <= for minimization >= for maximization
 
                 badIters++;
 
@@ -86,7 +90,7 @@ public class LogisticRegression {
                     converged = true;
                 }
             }else{
-
+                maxAcc = newAcc;
                 badIters = 0;
             }
             
@@ -98,27 +102,54 @@ public class LogisticRegression {
         System.out.println("converged");
     }
 
-    private RealMatrix getGrad(){
-        RealMatrix grad1;
+    private void multinomialLogisticRegression(){
+
+
+
+
+
+
+    }
+
+    private RealMatrix getGrad(int D, double lambda){
+
         RealMatrix grad2;
+        double b2 = 0;
+        double lambdaB2;
+
         Sigmoid sig = new Sigmoid();
-
-        RealMatrix XbetaHat = xHatTrain.transpose().multiply(betaHat);
-        RealMatrix sigXbetaHat = new Array2DRowRealMatrix(data.getN_TRAIN(), 1);
-        for(int i = 0; i < data.getN_TRAIN(); i++){
-            sigXbetaHat.setEntry(i, 0, sig.value(XbetaHat.getEntry(i, 0)));
-        }
-        grad1 = xHatTrain.multiply(sigXbetaHat.subtract(yTrain));
-
         RealMatrix XBeta = xHatTrain.transpose().multiply(betaHat);
         RealMatrix sigXBeta = new Array2DRowRealMatrix(XBeta.getRowDimension(), XBeta.getColumnDimension());
+        RealMatrix lambdaB2Matrix = new Array2DRowRealMatrix(D+1, 1);
 
+        //set sigmoid(XB)
         for(int i = 0; i < XBeta.getRowDimension(); i++){
             sigXBeta.setEntry(i, 0, sig.value(XBeta.getEntry(i,0)));
         }
-        grad2 = xHatTrain.multiply(sigXBeta.subtract(yTrain));
 
-        return grad2;
+        if(lambda > 0) {
+
+            // sum(bk^2)
+            for (int i = 0; i < D; i++) {
+                b2 = Math.pow(betaHat.getEntry(i, 0), 2.0);
+            }
+
+            // lambda*B^2 from index 1 to D instead of 0 to D
+            lambdaB2Matrix.setEntry(0, 0, 0);
+            lambdaB2 = lambda * b2;
+            for (int i = 1; i < D+1; i++) {
+                lambdaB2Matrix.setEntry(i, 0, lambdaB2);
+            }
+            grad2 = xHatTrain.multiply(sigXBeta.subtract(yTrain));
+            grad2 = grad2.subtract(lambdaB2Matrix);
+            return grad2;
+
+        }else{
+
+            grad2 = xHatTrain.multiply(sigXBeta.subtract(yTrain));
+            return grad2;
+        }
+
     }
 
     private double getAcc(RealMatrix X, RealMatrix y, RealMatrix pred, int N){
@@ -155,17 +186,15 @@ public class LogisticRegression {
         double trainAcc;
         double testAcc;
 
-        trainAcc = getAcc(xHatTrain, yTrain, trainPrediction, data.getN_TRAIN());
-        testAcc = getAcc(xHatDev, yDev, devPrediction, data.getN_DEV());
+        trainAcc = getAcc(xHatTrain, yTrain, predTrain, data.getN_TRAIN());
+        testAcc = getAcc(xHatDev, yDev, predDev, data.getN_DEV());
 
         System.err.printf("Iter: %04d trainAcc=%.3f testAc=%.3f\n", iter, trainAcc, testAcc);
         //System.out.print("train ");
-        //printMatrix(trainPrediction);
+        //printMatrix(predTrain);
         //System.out.print("dev ");
-        //printMatrix(devPrediction);
+        //printMatrix(predDev);
     }
-
-
 
     private double getNegativeLogLikelihood(RealMatrix b, RealMatrix x, RealMatrix y, int N, int D, double lambda){
 
@@ -194,8 +223,6 @@ public class LogisticRegression {
         LL = -LL;
         return -LL;
     }
-
-
 
     private static RealMatrix getXHatFromFile(String fileName, int N, int D) {
 
@@ -305,20 +332,5 @@ public class LogisticRegression {
             System.out.println();
         }
     }
-
-
-    //build matrix betaHat
-
-    //log likelyhood
-
-    //early stopping
-
-    //line search
-
-    //logistic regression
-
-    //multinomial logistic regression
-
-
 
 }
